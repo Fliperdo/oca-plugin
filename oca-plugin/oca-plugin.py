@@ -3,15 +3,49 @@
 
 import sys
 import json
+import os
+import tempfile
 import zipfile
 import gi
 
 gi.require_version("Gimp", "3.0")
 from gi.repository import Gimp
+from gi.repository import Gio
 from gi.repository import GLib
 
 
 PLUGIN_PROC = "file-oca-save"
+
+
+def export_layers(image, temp_dir):
+    layers = image.get_layers()
+
+    for i, layer in enumerate(layers):
+        filename = f"layer_{str(i+1).zfill(3)}_{layer.get_name().replace(' ', '_')}.png"
+        filepath = os.path.join(temp_dir, filename)
+
+        temp_image = image.duplicate()
+        temp_layers = temp_image.get_layers()
+        for j, temp_layer in enumerate(temp_layers):
+            if j != i:
+                temp_image.remove_layer(temp_layer)
+
+        flattened = temp_image.flatten()
+        out_file = Gio.File.new_for_path(filepath)
+        success = Gimp.file_save(
+            Gimp.RunMode.NONINTERACTIVE,
+            temp_image,
+            out_file,
+            None
+        )
+        temp_image.delete()
+
+        if not success:
+            raise RuntimeError(f"Failed to save layer {layer.get_name()} to {filepath}")
+
+        print(f"Saved: {filepath}")
+
+    print(f"Done! {len(layers)} layers exported to {temp_dir}")
 
 
 def oca_save_run(*args):
@@ -21,6 +55,12 @@ def oca_save_run(*args):
             print(f"arg[{i}] type={type(arg)} value={arg}")
 
         procedure = args[0]
+
+        image = None
+        for arg in args:
+            if isinstance(arg, Gimp.Image):
+                image = arg
+                break
 
         file_obj = None
         for arg in args:
@@ -55,11 +95,29 @@ def oca_save_run(*args):
             output_path += ".oca"
 
         content_json = {
-            # TODO: replace with actual OCA schema fields
+            "format": "open-cel-animation",
+            "version": 1,
+            "layers": [
+                {
+                    "name": layer.get_name(),
+                    "filename": f"images/layer_{str(i+1).zfill(3)}_{layer.get_name().replace(' ', '_')}.png"
+                }
+                for i, layer in enumerate(image.get_layers())
+            ] if image is not None else []
         }
 
-        with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("content.json", json.dumps(content_json, indent=2) + "\n")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            if image is not None:
+                export_layers(image, temp_dir)
+
+            with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("content.json", json.dumps(content_json, indent=2) + "\n")
+
+                if image is not None:
+                    for filename in os.listdir(temp_dir):
+                        filepath = os.path.join(temp_dir, filename)
+                        zf.write(filepath, f"images/{filename}")
+                        print(f"Zipped: images/{filename}")
 
         return procedure.new_return_values(
             Gimp.PDBStatusType.SUCCESS,
