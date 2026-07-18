@@ -257,6 +257,8 @@ class OcaSaver(Gimp.PlugIn):
             )
             procedure.set_attribution("Clifton Malecki", "Clifton Malecki", "2026")
             procedure.set_menu_label("Open Cel Animation")
+            procedure.set_extensions("oca")
+            procedure.set_mime_types("application/zip")
             return procedure
         return None
 
@@ -341,6 +343,8 @@ class OcaPlugin(Gimp.PlugIn):
             )
             procedure.set_attribution("Clifton Malecki", "Clifton Malecki", "2026")
             procedure.set_menu_label("Open Cel Animation")
+            procedure.set_extensions("oca")
+            procedure.set_mime_types("application/zip")
             return procedure
         return None
 
