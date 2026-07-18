@@ -31,7 +31,7 @@ def export_layers(image, temp_dir):
             if j != i:
                 temp_image.remove_layer(temp_layer)
 
-        flattened = temp_image.flatten()
+        # Warning - flattening removes alpha
         out_file = Gio.File.new_for_path(filepath)
         success = Gimp.file_save(
             Gimp.RunMode.NONINTERACTIVE,
@@ -138,7 +138,14 @@ def import_oca(input_path):
                 print(f"Warning: could not load {frame_path}")
                 continue
 
-            loaded_layer = loaded_image.flatten()
+            # Use the first layer from the loaded image rather than flattening it,
+            # to preserve any alpha channel / transparent pixels in the PNG.
+            loaded_layers = loaded_image.get_layers()
+            if not loaded_layers:
+                print(f"Warning: no layers found in {frame_path}")
+                loaded_image.delete()
+                continue
+            loaded_layer = loaded_layers[0]
 
             new_layer = Gimp.Layer.new_from_drawable(loaded_layer, image)
             new_layer.set_name(layer_name)
