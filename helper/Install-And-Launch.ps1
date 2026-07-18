@@ -1,7 +1,7 @@
 # Installs/updates the plugin, then launches GIMP and (optionally) opens a file
 [CmdletBinding()]
 param(
-    [string]$FileToOpen = "C:\Users\clift\OneDrive\Desktop\SunnyDay.oca",
+    [string]$FileToOpen = "C:\Users\clift\OneDrive\Desktop\Original.oca",
     [switch]$SkipInstall
 )
 
