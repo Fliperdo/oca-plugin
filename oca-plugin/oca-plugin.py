@@ -12,6 +12,7 @@ gi.require_version("Gimp", "3.0")
 from gi.repository import Gimp
 from gi.repository import Gio
 from gi.repository import GLib
+from gi.repository import GObject
 
 
 PLUGIN_PROC = "file-oca-save"
@@ -184,7 +185,6 @@ class OcaPlugin(Gimp.PlugIn):
                 name,
                 Gimp.PDBProcType.PLUGIN,
                 self.load_run,
-                None,
                 None
             )
             procedure.set_documentation(
@@ -220,33 +220,15 @@ class OcaPlugin(Gimp.PlugIn):
         return None
 
     def load_run(self, procedure, run_mode, file, metadata, flags, config, *extra):
-        try:
-            path = file.get_path()
-            image = import_oca(path)
-            
-            # Create and show display for the loaded image
-            Gimp.Display.new(image)
-            
-            # Return success - don't try to return the image
-            # LoadProcedure apparently doesn't expect us to return it
-            result = procedure.new_return_values(
-                Gimp.PDBStatusType.SUCCESS,
-                None
-            )
-            return result
-        except Exception as exc:
-            print(f"OcaPlugin.load_run exception: {repr(exc)}")
-            import traceback
-            traceback.print_exc()
-            error = GLib.Error.new_literal(
-                GLib.quark_from_string("oca-plugin"),
-                str(exc),
-                0
-            )
-            return procedure.new_return_values(
-                Gimp.PDBStatusType.EXECUTION_ERROR,
-                error
-            )
+        path = file.get_path()
+        image = import_oca(path)
+
+        # Return status and the loaded image as per GIMP 3 plug-in API
+        return Gimp.ValueArray.new_from_values([
+            GObject.Value(Gimp.PDBStatusType, Gimp.PDBStatusType.SUCCESS),
+            GObject.Value(Gimp.Image, image),
+        ]), flags
+
 
     def save_run(self, procedure, run_mode, image, file, metadata, config, *extra):
         try:
